@@ -9,36 +9,87 @@
 #include <sys/socket.h>
 #include <arpa/inet.h>
 #include <unistd.h>
+#include <ctype.h>
 
 #define SERVER_IP "127.0.0.1" // Change this to the IP address of your server
 #define MIRROR_IP "127.0.0.1" // Change this to the IP address of your server
 #define SERVER_PORT 8080     // Change this to the port number your server is listening on
 #define MIRROR_PORT 8082     // Change this to the port number your server is listening on
 #define BUFFER_SIZE 16384 // size of the buffer to read from the socket
+#define MAX_WORDS_IN_COMMAND 8
 
 int process_message (char* message) {
-    printf("In process message: %s %d\n", message, strlen(message));
-     //fflush(stdout);
+    //printf("In process message: %s\n", message);
+    // fflush(stdout);
 
-    if (strlen(message) == 0) {
+   if (strlen(message) == 0) {
         return 0;
     }
+    char *msg_copy = strdup(message);
+    char *token_0  = strtok(msg_copy," ");
+    char *command =strdup(token_0);
+    char *words[10] ={"default"};
+    //words[0] = command;
+   
+    int returnval=1,num_commands,i =0;
+    while(token_0 != NULL) {
+       words[i] = token_0;
+        i++;
+        token_0 = strtok(NULL," ");
+         
+    }
+     /*for(int j=0;j<10;j++) {
+        if (words[j] =='\0') {
+        }
+        else {
+            printf("words %d %s is \n",j,words[j]);
+        }
+     }*/
+        
+     num_commands =i;
+    // printf("Number of wrods eneterd by user %d \n",num_commands);
+     if (strcmp(command,"findfile")  == 0) {
+        if(num_commands !=2) {
+                    printf("[Correct Command Usage]  findfile  filename \n");
+                    fflush(stdout);
+                    returnval =0;
+                 }
+     }
+     else  if (strcmp(command,"sgetfiles")  == 0) {
+        if(num_commands !=4) {
+                    printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
+                    fflush(stdout);
+                    returnval =0;
+                 }
+        else {
+            //printf("words %d %s is \n",j,words[j]);
+            //printf("words2 is %s \n",words[2]);
+            char * optionTwo =words[2];
+            for(int i =0; optionTwo[i]  != '\0';i++) {
+                //printf("characters printed are %s \n",optionTwo[i]);
+                //fflush(stdout);
+                    if(!isdigit(optionTwo[i])) {
+                        printf("Not a file size \n");
+                        printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
+                        printf("size1 size2 must be numberic \n");
+                    fflush(stdout);
+
+                    }
+            }
+            fflush(stdout);
+            
+        }
+     }
     
-    char *firstExpression  = strtok(message," ");
-    printf("After split my message is %s \n",firstExpression);
-     
-     switch(firstExpression) {
-        case "findfile" 
-                
-                break;
-         case "sgetfiles" 
-                break;
-         case "sgetfiles" 
-                break;
-         case "getfiles" 
-                break;
-         case "gettargz" 
-                break;
+     else  if (strcmp(command,"dgetfiles")  == 0) {
+        if(num_commands !=3) {
+                    printf("[Correct Command Usage]  sgetfiles  size1 size2 <-u>\n");
+                    fflush(stdout);
+                    returnval =0;
+                 }
+        else {
+            
+        }
      }
 
     //checking if the user has entered quit
@@ -46,9 +97,10 @@ int process_message (char* message) {
                 // Close connection to client and exit child process
                 //close(sock);
                 //break;
+                returnval= 0;
     }
 
-    return 1;
+    return returnval;
 }
 
 int handle_ack(int* sock, char* message) {
@@ -151,22 +203,24 @@ int main() {
     while (1) {
         // scanf("%s", message);
         int is_valid;
-        do {
+        //do {
             printf("Enter message to be sent to the server:\n");
             gets(message);
-        } while ((is_valid = process_message(message)) == 0);
+        //} while ((is_valid = process_message(message)) == 0);
 
         // printf("Entered message is: %s", message);
         //process the message
-        // int is_valid = process_message(message);
+        is_valid = process_message(message);
 
         // strcat(message, "\n");
 
         if (is_valid) {
+            
             send(sock, message, strlen(message), 0);
            
         } else {
-            printf("Message is not correct. try again\n");
+            //printf("Message is not correct. try again\n");
+            //fflush(stdout);
             continue;
         }
 
