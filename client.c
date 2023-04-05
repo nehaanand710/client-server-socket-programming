@@ -18,10 +18,36 @@
 
 int process_message (char* message) {
     printf("In process message: %s %d\n", message, strlen(message));
+     //fflush(stdout);
 
     if (strlen(message) == 0) {
         return 0;
     }
+    
+    char *firstExpression  = strtok(message," ");
+    printf("After split my message is %s \n",firstExpression);
+     
+     switch(firstExpression) {
+        case "findfile" 
+                
+                break;
+         case "sgetfiles" 
+                break;
+         case "sgetfiles" 
+                break;
+         case "getfiles" 
+                break;
+         case "gettargz" 
+                break;
+     }
+
+    //checking if the user has entered quit
+     if (strcmp(message, "quit") == 0) {
+                // Close connection to client and exit child process
+                //close(sock);
+                //break;
+    }
+
     return 1;
 }
 
@@ -138,11 +164,7 @@ int main() {
 
         if (is_valid) {
             send(sock, message, strlen(message), 0);
-            if (strcmp(message, "quit") == 0) {
-                // Close connection to client and exit child process
-                close(sock);
-                break;
-            }
+           
         } else {
             printf("Message is not correct. try again\n");
             continue;
