@@ -92,7 +92,7 @@ void *server_thread(void *arg) {
         }
 
         set_other_status(0);
-        printf("Server is now UP\n");
+        printf("[*] SERVER: Mirror is now UP\n\n");
 
         // Start a new thread to handle heartbeat messages
         // pthread_t tid;
@@ -112,7 +112,7 @@ void *server_thread(void *arg) {
         //     perror("read");
         // }
         set_other_status(1);
-        printf("Server is now DOWN\n");
+        printf("[*] SERVER: Mirror is now DOWN\n\n");
         // pthread_cancel(tid);
     }
     return NULL;
@@ -147,7 +147,7 @@ void *mirror_thread(void *arg) {
         }
 
         set_other_status(0);
-        printf("Server is now UP\n");
+        printf("[*] SERVER: Server is now UP\n\n");
         
         // Start a new thread to handle heartbeat messages
         // pthread_t tid;
@@ -166,7 +166,7 @@ void *mirror_thread(void *arg) {
         // }
 
         set_other_status(1);
-        printf("Server is now DOWN\n");
+        printf("[*] SERVER: Server is now DOWN\n\n");
         // pthread_cancel(tid);
     }
 
@@ -176,14 +176,14 @@ void *mirror_thread(void *arg) {
 char* process_message (char* message) {
     // quit request from client
     if (strcmp(message, "quit") == 0) {
-        printf("client exit request. Exiting from the process handler\n");
+        printf("[*] SERVER: Client closed connection\n\n");
         exit(0);
     }
     char* response = "Processed message";
     return response;
 }
 
-void process_client(int new_socket, char* message) {
+void process_client(int new_socket) {
 
     char buffer[BUFFER_SIZE] = {0};
     // while(1) {
@@ -204,11 +204,11 @@ void process_client(int new_socket, char* message) {
         
         // client disconnected
         if (valread <= 0) {
-            printf("Client Disconnected or some error occured. Exiting the client handler\n");
+            printf("[*] SERVER: Client Disconnected Abruptly.\n\n");
             exit(0);
         }
 
-        printf("Message received from client: %s\n", buffer);
+        printf("[*] SERVER: Message received from client: %s\n\n", buffer);
 
         fflush(stdout);
 
@@ -224,7 +224,6 @@ int main(int argc, char* argv[]) {
     struct sockaddr_in address;
     int addrlen = sizeof(address);
     char buffer[BUFFER_SIZE] = {0};
-    char *message = "Hello, client!";
     int opt = 1;
 
     if (argc > 1) {
@@ -252,7 +251,7 @@ int main(int argc, char* argv[]) {
         exit(EXIT_FAILURE);
     }
 
-    signal(SIGCHLD, sigchld_handler);
+    // signal(SIGCHLD, sigchld_handler);
 
     // Set server address
     address.sin_family = AF_INET;
@@ -272,7 +271,6 @@ int main(int argc, char* argv[]) {
     // Accept and process incoming connections indefinitely
     int count = 0;
     while (1) {
-        printf("Waiting for client connections...\n");
 
         // Accept incoming connection
         if ((new_socket = accept(server_fd, (struct sockaddr *)&address, (socklen_t*)&addrlen)) < 0) {
@@ -280,20 +278,27 @@ int main(int argc, char* argv[]) {
             continue; // Try again
         }
 
-        printf("New client connection accepted. Forking to handle\n");
+        printf("[*] SERVER: New client connection\n\n");
+        fflush(stdout);
         
         // Fork new process to handle client request
         pid_t pid = fork();
         if (pid == 0) { // Child process
             close(server_fd); // Close listening socket in child process
-            if (*is_other_down || count < 4 || count > 7) {
+            if (is_mirror) {
                 char* accept_message = "Success: Accepted";
                 send(new_socket, accept_message, strlen(accept_message), 0);
-                process_client(new_socket, message);
+                process_client(new_socket);
             } else {
-                char* reject_message = "Error: Server Full";
-                send(new_socket, reject_message, strlen(reject_message), 0);
-                exit(0);
+                if (*is_other_down || count < 4 || count > 7) {
+                    char* accept_message = "Success: Accepted";
+                    send(new_socket, accept_message, strlen(accept_message), 0);
+                    process_client(new_socket);
+                } else {
+                    char* reject_message = "Error: Server Full";
+                    send(new_socket, reject_message, strlen(reject_message), 0);
+                    exit(0);
+                }
             }
 
         } else if (pid < 0) { // Error forking process
