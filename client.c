@@ -18,6 +18,141 @@
 #define BUFFER_SIZE 16384 // size of the buffer to read from the socket
 #define MAX_WORDS_IN_COMMAND 8
 
+
+int receive_text(int sockfd, char *buffer) {
+    int n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive text message");
+        return -1;
+    }
+    buffer[n] = '\0';
+    printf("Received text message: %s\n", buffer);
+
+    //send ack
+    n = write(sockfd, "ack", 3);
+    if (n < 0) {
+        perror("ERROR: Failed to ack");
+        return -1;
+    }
+
+    return 0;
+}
+
+int receive_file(int sockfd, char* buffer) {
+    // char buffer[BUFFER_SIZE];
+    int n;
+    FILE *fp;
+    long filesize;
+    char filename[256];
+    
+    // Receive filename
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive filename");
+        return -1;
+    }
+    buffer[n] = '\0';
+    strcpy(filename, buffer);
+    printf("Received filename: %s\n", filename);
+
+    //send ack
+    n = write(sockfd, "ack", 3);
+    if (n < 0) {
+        perror("ERROR: Failed to ack");
+        return -1;
+    }
+
+    // Receive filesize
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive filesize");
+        return -1;
+    }
+    buffer[n] = '\0';
+    filesize = atol(buffer);
+    printf("Received filesize: %ld\n", filesize);
+
+    //send ack
+    n = write(sockfd, "ack", 3);
+    if (n < 0) {
+        perror("ERROR: Failed to ack");
+        return -1;
+    }
+
+    // Open file for writing
+    fp = fopen(filename, "wb");
+    if (fp == NULL) {
+        perror("ERROR: Failed to open file for writing");
+        return -1;
+    }
+
+    // Receive file data
+    while (filesize > 0) {
+        n = read(sockfd, buffer, BUFFER_SIZE);
+        if (n < 0) {
+            perror("ERROR: Failed to receive file data");
+            fclose(fp);
+            return -1;
+        }
+        fwrite(buffer, 1, n, fp);
+        filesize -= n;
+    }
+    fclose(fp);
+    printf("Received file: %s\n", filename);
+
+    //send ack
+    n = write(sockfd, "ack", 3);
+    if (n < 0) {
+        perror("ERROR: Failed to ack");
+        return -1;
+    }
+
+    return 0;
+}
+
+// int receive_end(int sockfd) {
+//     char buffer[BUFFER_SIZE];
+//     int n = read(sockfd, buffer, BUFFER_SIZE);
+//     if (n < 0) {
+//         perror("ERROR: Failed to receive end message");
+//         return -1;
+//     }
+//     buffer[n] = '\0';
+//     if (strcmp(buffer, "end") != 0) {
+//         printf("ERROR: Expected end message but received %s\n", buffer);
+//         return -1;
+//     }
+//     printf("Received end message\n");
+//     return 0;
+// }
+
+int get_message(int sockfd, char* buffer) {
+    // char buffer[BUFFER_SIZE];
+    int n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive message type");
+        return -1;
+    }
+    buffer[n] = '\0';
+    printf("Received message type: %s\n", buffer);
+    
+    //send ack
+    n = write(sockfd, "ack", 3);
+    if (n < 0) {
+        perror("ERROR: Failed to ack");
+        return -1;
+    }
+    
+    if (strcmp(buffer, "text") == 0) {
+        return receive_text(sockfd, buffer);
+    } else if (strcmp(buffer, "file") == 0) {
+        return receive_file(sockfd, buffer);
+    } else {
+        printf("ERROR: Unknown message type: %s\n", buffer);
+        return -1;
+    }
+}
+
 int process_message (char* message) {
     //printf("In process message: %s\n", message);
     // fflush(stdout);
@@ -227,7 +362,8 @@ int main() {
         printf("Message sent to server\n");
 
         // Receive response from server
-        valread = read(sock, buffer, BUFFER_SIZE);
+        // valread = read(sock, buffer, BUFFER_SIZE);
+        get_message(sock, buffer);
 
         printf("Response from the server: %s\n", buffer);
         // close(sock); // Close connection to server
