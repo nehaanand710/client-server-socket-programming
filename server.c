@@ -15,8 +15,147 @@
 #define BUFFER_SIZE 16384
 #define HEARTBEAT_INTERVAL_SECONDS 10
 
+char* findfile = "find ~ -name \"a.out\" -printf \"%f, size: %s bytes, created on: %t\n\" -quit";
+char* sgetfiles = "find ~ -type f -size +\"$size1\"c -size -\"$size2\"c -print0 | tar -czvf temp.tar.gz --null -T -"; //size1 <= size2
+char* dgetfiles = "find ~ -type f -newermt \"$date1\" ! -newermt \"$date2\" -print0 | tar -czvf temp.tar.gz --null -T -"; //date1 <= date2
+char* getfiles = "find ~ \( -name \"$file1\" -o -name \"$file2\" \) -print0 | tar -czvf temp.tar.gz --null -T -"; //search with file1 file2 etc upto 6 files
+char* gettargz = "find ~ -type f \( -iname \"*.$1\" -o -iname \"*.$2\" \) -print0 | tar -czvf temp.tar.gz --null -T -";
+
 int is_mirror = 0;
 int* is_other_down;
+
+int send_text(int sockfd, char *text) {
+    char buffer[BUFFER_SIZE];
+
+    //send response type
+    int n = write(sockfd, "text", 4);
+    if (n < 0) {
+        perror("ERROR: Failed to send message type");
+        return -1;
+    }
+
+    //receive ack
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive ack for filesize");
+        return -1;
+    }
+
+    //send text data
+    n = write(sockfd, text, strlen(text));
+    if (n < 0) {
+        perror("ERROR: Failed to send text message");
+        return -1;
+    }
+
+    //receive ack
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive ack for filesize");
+        return -1;
+    }
+    
+    return 0;
+}
+
+int send_file(int sockfd, char *filename) {
+    char buffer[BUFFER_SIZE];
+    int n;
+    FILE *fp;
+    long filesize;
+    
+    // Open file for reading
+    fp = fopen(filename, "rb");
+    if (fp == NULL) {
+        perror("ERROR: Failed to open file for reading");
+        return -1;
+    }
+
+    // Get file size
+    fseek(fp, 0L, SEEK_END);
+    filesize = ftell(fp);
+    rewind(fp);
+
+    //send response type
+    n = write(sockfd, "file", 4);
+    if (n < 0) {
+        perror("ERROR: Failed to send message type");
+        return -1;
+    }
+
+    //receive ack
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive ack for filesize");
+        return -1;
+    }
+
+    // Send filename
+    n = write(sockfd, "test.json", strlen("test.json"));
+    sprintf(buffer, "%ld\n", filesize);
+    if (n < 0) {
+        perror("ERROR: Failed to send filename");
+        fclose(fp);
+        return -1;
+    }
+
+    //receive ack
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive ack for filesize");
+        return -1;
+    }
+
+    // Send filesize
+    sprintf(buffer, "%ld\n", filesize);
+    n = write(sockfd, buffer, strlen(buffer));
+    if (n < 0) {
+        perror("ERROR: Failed to send filesize");
+        fclose(fp);
+        return -1;
+    }
+
+    //receive ack
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive ack for filesize");
+        return -1;
+    }
+
+    // Send file data
+    while (filesize > 0) {
+        n = fread(buffer, 1, BUFFER_SIZE, fp);
+        if (n < 0) {
+            perror("ERROR: Failed to read file data");
+            fclose(fp);
+            return -1;
+        }
+        n = write(sockfd, buffer, n);
+        if (n < 0) {
+            perror("ERROR: Failed to send file data");
+            fclose(fp);
+            return -1;
+        }
+        filesize -= n;
+    }
+    fclose(fp);
+    //receive ack
+    n = read(sockfd, buffer, BUFFER_SIZE);
+    if (n < 0) {
+        perror("ERROR: Failed to receive ack for filesize");
+        return -1;
+    }
+    return 0;
+}
+
+// int send_end(int sockfd) {
+//     int n = write(sockfd, "end", 3);
+//     if (n < 0) {
+//         perror("ERROR: Failed to send end message");
+//         return -1;
+//     }
+//     return 0;
+// }
 
 void* create_shared_memory(size_t size) {
   // Our memory buffer will be readable and writable:
@@ -214,8 +353,9 @@ void process_client(int new_socket) {
 
         char* response = process_message(buffer);
 
-        // Send response to client
-        send(new_socket, response, strlen(response), 0);
+        //send response text
+        send_text(new_socket, "sample_text");
+        // send_file(new_socket, "/home/cj/replies.json");
     }
 }
 
