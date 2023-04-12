@@ -16,12 +16,6 @@
 #define BUFFER_SIZE 16384
 #define HEARTBEAT_INTERVAL_SECONDS 10
 
-char* findfile = "find ~ -name \"a.out\" -printf \"%f, size: %s bytes, created on: %t\n\" -quit";
-char* sgetfiles = "find ~ -type f -size +\"$size1\"c -size -\"$size2\"c -print0 | tar -czvf temp.tar.gz --null -T -"; //size1 <= size2
-char* dgetfiles = "find ~ -type f -newermt \"$date1\" ! -newermt \"$date2\" -print0 | tar -czvf temp.tar.gz --null -T -"; //date1 <= date2
-char* getfiles = "find ~ \( -name \"$file1\" -o -name \"$file2\" \) -print0 | tar -czvf temp.tar.gz --null -T -"; //search with file1 file2 etc upto 6 files
-char* gettargz = "find ~ -type f \( -iname \"*.$1\" -o -iname \"*.$2\" \) -print0 | tar -czvf temp.tar.gz --null -T -";
-
 int is_mirror = 0;
 int* is_other_down;
 
@@ -64,7 +58,6 @@ char* execute_command(char* cmd) {
     char buffer[BUFFER_SIZE-1];
     FILE* fp;
     char* result;
-    long size = 1024;
 
     fp = popen(cmd, "r");
     if (fp == NULL) {
@@ -207,15 +200,6 @@ int send_file(int sockfd, char *filename) {
     return 0;
 }
 
-// int send_end(int sockfd) {
-//     int n = write(sockfd, "end", 3);
-//     if (n < 0) {
-//         perror("ERROR: Failed to send end message");
-//         return -1;
-//     }
-//     return 0;
-// }
-
 void* create_shared_memory(size_t size) {
   // Our memory buffer will be readable and writable:
   int protection = PROT_READ | PROT_WRITE;
@@ -292,23 +276,12 @@ void *server_thread(void *arg) {
         set_other_status(0);
         printf("[*] SERVER: Mirror is now UP\n\n");
 
-        // Start a new thread to handle heartbeat messages
-        // pthread_t tid;
-        // if(pthread_create(&tid, NULL, heartbeat, &new_socket) != 0) {
-        //     perror("pthread_create");
-        //     exit(EXIT_FAILURE);
-        // }
-
         // Receive data from client
         char buffer[1024] = {0};
         while ((valread = read(new_socket , buffer, 1024)) > 0) {
             // printf("%s\n",buffer);
         }
-        // if (valread == 0) {
-        //     printf("Client disconnected\n");
-        // } else {
-        //     perror("read");
-        // }
+
         set_other_status(1);
         printf("[*] SERVER: Mirror is now DOWN\n\n");
         // pthread_cancel(tid);
@@ -346,22 +319,10 @@ void *mirror_thread(void *arg) {
 
         set_other_status(0);
         printf("[*] SERVER: Server is now UP\n\n");
-        
-        // Start a new thread to handle heartbeat messages
-        // pthread_t tid;
-        // if(pthread_create(&tid, NULL, heartbeat, &sockfd) != 0) {
-        //     perror("pthread_create");
-        //     exit(EXIT_FAILURE);
-        // }
 
         while ((valread = read(sockfd , buffer, 1024)) > 0) {
             // printf("%s\n",buffer);
         }
-        // if (valread == 0) {
-        //     printf("Client disconnected\n");
-        // } else {
-        //     perror("read");
-        // }
 
         set_other_status(1);
         printf("[*] SERVER: Server is now DOWN\n\n");
@@ -371,36 +332,30 @@ void *mirror_thread(void *arg) {
     return NULL;
 }
 
-char* process_message (int new_socket, char* message) {
-    // quit request from client
-    // printf("message: %s\n", message);
+void process_message (int new_socket, char* message) {
     char* cmd = malloc(200);
     char** tokens = malloc(strlen(message)*sizeof(char));
     int n = tokenize_string(message, tokens);
+    
+    //generate unique filename
+    char* filename = malloc(30);
+    sprintf(filename, "temp_%lld.tar.gz", get_time());
+    
     if (strcmp(message, "quit") == 0) {
         printf("[*] SERVER: Client closed connection\n\n");
         exit(0);
     }
 
     else if (strncmp(message, "findfile", 8) == 0) {
-        //send response text
-        // char** tokens = malloc(strlen(message)*sizeof(char));
-        // int n = tokenize_string(message, tokens);
-        // int i;
-        // for (i=0;i<n;i++) {
-        //     printf("token[i] => %s", tokens[i]);
-        // }
+
         sprintf(cmd, "find ~ -name %s -printf \"%%f, size: %%s bytes, created on: %%t\n\" -quit", tokens[1]);
         printf("cmd value: %s\n", cmd);
-        // cmd= "ls -l";
         char* result = execute_command(cmd);
         if (strlen(result) == 0) {
             result = "File Not Found";
         }
 
         send_text(new_socket, result);
-
-        // send_text(new_socket, "sample_text");
 
     }
 
@@ -423,19 +378,96 @@ char* process_message (int new_socket, char* message) {
         sprintf(cmd, "rm -f %s", filename);
         system(cmd);
     }
+
+    else if (strncmp(message, "dgetfiles", 9) == 0) {
+        char* min_date = tokens[1];
+        char* max_date = tokens[2];
+      
+        //create tar.gz file
+        sprintf(cmd, "find ~ -type f -newermt \"%s\" ! -newermt \"%s\" -print0 | tar -czvf %s --null -T - > /dev/null 2>&1", min_date, max_date, filename);
+        system(cmd);
+        
+        //send file
+        send_file(new_socket, filename);
+
+        // remove the file from server
+        sprintf(cmd, "rm -f %s", filename);
+        system(cmd);
+    }
+
+    else if (strncmp(message, "getfiles", 8) == 0) {
+        
+        sprintf(cmd, "find ~ \\( -name %s", tokens[1]);
+        
+        int i;
+        for (i=2;i<n;i++) {
+            sprintf(cmd, "%s -o -name %s", cmd, tokens[i]);
+        }
+
+        sprintf(cmd, "%s \\) -print0", cmd);
+
+        char* result = execute_command(cmd);
+
+        printf("result len: %ld", strlen(result));
+
+        if (strlen(result) == 0) {
+            send_text(new_socket, "No file found");
+        } else {
+            //create tar
+            sprintf(cmd, "%s | tar -czvf %s --null -T - ", cmd, filename);
+            system(cmd);
+
+            //send file
+            send_file(new_socket, filename);
+
+            // remove the file from server
+            sprintf(cmd, "rm -f %s", filename);
+            system(cmd);
+        }
+
+    }
+
+    else if (strncmp(message, "gettargz", 8) == 0) {
+        //find ~ -type f \\( -iname \"*.$1\" -o -iname \"*.$2\" \\) -print0
+        sprintf(cmd, "find ~ -type f \\( -iname \"*.%s\"", tokens[1]);
+        
+        int i;
+        for (i=2;i<n;i++) {
+            sprintf(cmd, "%s -o -iname \"*.%s\"", cmd, tokens[i]);
+        }
+
+        sprintf(cmd, "%s \\) -print0", cmd);
+
+        char* result = execute_command(cmd);
+
+        printf("result len: %ld", strlen(result));
+
+        if (strlen(result) == 0) {
+            send_text(new_socket, "No file found");
+        } else {
+            //create tar
+            sprintf(cmd, "%s | tar -czvf %s --null -T - ", cmd, filename);
+            system(cmd);
+
+            //send file
+            send_file(new_socket, filename);
+
+            // remove the file from server
+            sprintf(cmd, "rm -f %s", filename);
+            system(cmd);
+        }
+
+    }
+
     free(cmd);
-    char* response = "Processed message";
+    free(filename);
     printf("[*] SERVER: Response sent to client\n\n");
-    return response;
+    fflush(stdout);
 }
 
 void process_client(int new_socket) {
 
     char buffer[BUFFER_SIZE] = {0};
-    // while(1) {
-    //     int valread = read(new_socket, buffer, BUFFER_SIZE);
-    //     printf("read: %s, %d\n", buffer, valread);
-    // }
     
     while (1) {
         // clear buffer before each read
@@ -444,10 +476,6 @@ void process_client(int new_socket) {
         // Receive message from client
         int valread = read(new_socket, buffer, BUFFER_SIZE);
 
-
-        // get_input(new_socket, buffer);
-        // printf("valread: %d\n", valread);
-        
         // client disconnected
         if (valread <= 0) {
             printf("[*] SERVER: Client Disconnected Abruptly.\n\n");
@@ -458,12 +486,7 @@ void process_client(int new_socket) {
 
         fflush(stdout);
 
-        char* response = process_message(new_socket, buffer);
-        fflush(stdout);
-
-        // //send response text
-        // send_text(new_socket, "sample_text");
-        // send_file(new_socket, "/home/cj/replies.json");
+        process_message(new_socket, buffer);
     }
 }
 
@@ -498,8 +521,6 @@ int main(int argc, char* argv[]) {
         perror("Setsockopt failed");
         exit(EXIT_FAILURE);
     }
-
-    // signal(SIGCHLD, sigchld_handler);
 
     // Set server address
     address.sin_family = AF_INET;

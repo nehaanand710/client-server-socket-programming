@@ -26,7 +26,7 @@ int receive_text(int sockfd, char *buffer) {
         return -1;
     }
     buffer[n] = '\0';
-    printf("\nResponse from the server:\n %s\n", buffer);
+    printf("\nResponse from the server:\n %s\n\n", buffer);
 
     //send ack
     n = write(sockfd, "ack", 3);
@@ -110,22 +110,6 @@ int receive_file(int sockfd, char* buffer) {
     return 0;
 }
 
-// int receive_end(int sockfd) {
-//     char buffer[BUFFER_SIZE];
-//     int n = read(sockfd, buffer, BUFFER_SIZE);
-//     if (n < 0) {
-//         perror("ERROR: Failed to receive end message");
-//         return -1;
-//     }
-//     buffer[n] = '\0';
-//     if (strcmp(buffer, "end") != 0) {
-//         printf("ERROR: Expected end message but received %s\n", buffer);
-//         return -1;
-//     }
-//     printf("Received end message\n");
-//     return 0;
-// }
-
 int get_message(int sockfd, char* buffer) {
     // char buffer[BUFFER_SIZE];
     int n = read(sockfd, buffer, BUFFER_SIZE);
@@ -154,10 +138,9 @@ int get_message(int sockfd, char* buffer) {
 }
 
 int process_message (char* message) {
-    //printf("In process message: %s\n", message);
-    // fflush(stdout);
-    return 1;
-   if (strlen(message) == 0) {
+
+    // return 1;
+    if (strlen(message) == 0) {
         return 0;
     }
     char *msg_copy = strdup(message);
