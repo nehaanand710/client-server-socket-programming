@@ -137,72 +137,96 @@ int get_message(int sockfd, char* buffer) {
     }
 }
 
+int incoming_msg_tokens(const char *str, char **tokens) {
+    char *token;
+    int token_count = 0;
+
+    // Make a copy of the input string, since strtok modifies the original string.
+    char *str_copy = strdup(str);
+
+    // Tokenize the string by space since commands are expected to be separated by a space
+    token = strtok(str_copy, " ");
+    while (token != NULL) {
+        // Copy the token into the output array.
+        tokens[token_count] = strdup(token);
+        token_count++;
+
+        // Get the next token.
+        token = strtok(NULL, " ");
+    }
+
+    // Free the temporary string copy.
+    free(str_copy);
+
+    // Return the number of tokens found.
+    return token_count;
+}
+
 int process_message (char* message) {
 
     // return 1;
     if (strlen(message) == 0) {
         return 0;
     }
-    char *msg_copy = strdup(message);
-    char *token_0  = strtok(msg_copy," ");
-    char *command =strdup(token_0);
-    char *words[10] ={"default"};
-    //words[0] = command;
+    char* cmd = malloc(200);
+    char** tokens = malloc(strlen(message)*sizeof(char));
+    int num_commands = incoming_msg_tokens(message, tokens);
+    int returnval=0;
+
+    incoming_msg_tokens(message,tokens);
+          
    
-    int returnval=1,num_commands,i =0;
-    while(token_0 != NULL) {
-       words[i] = token_0;
-        i++;
-        token_0 = strtok(NULL," ");
-         
-    }
-     /*for(int j=0;j<10;j++) {
-        if (words[j] =='\0') {
-        }
-        else {
-            printf("words %d %s is \n",j,words[j]);
-        }
-     }*/
-        
-     num_commands =i;
     // printf("Number of wrods eneterd by user %d \n",num_commands);
-     if (strcmp(command,"findfile")  == 0) {
+     if (strcmp(tokens[0],"findfile")  == 0) {
+         //printf("Inside first condition %s \n",tokens[0]);
+    //fflush(stdout);
         if(num_commands !=2) {
                     printf("[Correct Command Usage]  findfile  filename \n");
                     fflush(stdout);
                     returnval =0;
                  }
      }
-     else  if (strcmp(command,"sgetfiles")  == 0) {
+     else  if (strcmp(tokens[0],"sgetfiles")  == 0) {
         if(num_commands !=4) {
                     printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
                     fflush(stdout);
                     returnval =0;
                  }
         else {
-            //printf("words %d %s is \n",j,words[j]);
-            //printf("words2 is %s \n",words[2]);
-            char * optionTwo =words[2];
-            for(int i =0; optionTwo[i]  != '\0';i++) {
-                //printf("characters printed are %s \n",optionTwo[i]);
-                //fflush(stdout);
-                    if(!isdigit(optionTwo[i])) {
-                        printf("Not a file size \n");
-                        printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
-                        printf("size1 size2 must be numberic \n");
-                    fflush(stdout);
-
-                    }
+            
             }
             fflush(stdout);
             
         }
-     }
+     
     
-     else  if (strcmp(command,"dgetfiles")  == 0) {
+     else  if (strcmp(tokens[0],"dgetfiles")  == 0) {
         if(num_commands !=3) {
                     printf("[Correct Command Usage]  sgetfiles  size1 size2 <-u>\n");
                     fflush(stdout);
+                    returnval =0;
+                 }
+        else {
+            
+        }
+     }
+
+      else  if (strcmp(tokens[0],"getfiles")  == 0) {
+        if(num_commands >8) {
+                    printf("[Correct Command Usage]  sgetfiles  file1 file2 file3 file4 file5 file6<-u>\n");
+                    printf("Maximum six file names can be entered");
+                    fflush(stdout);
+                    returnval =0;
+                 }
+        else {
+            
+        }
+     }
+     else  if (strcmp(tokens[0],"gettargz")  == 0) {
+        if(num_commands <8) {
+                    printf("[Correct Command Usage]  gettargz <extensionlist> <-u>\n");
+                    printf("Maximum six extensions can be entered");f
+                    flush(stdout);
                     returnval =0;
                  }
         else {
@@ -321,10 +345,10 @@ int main() {
     while (1) {
         // scanf("%s", message);
         int is_valid;
-        //do {
+        
             printf("Enter message to be sent to the server:\n");
             gets(message);
-        //} while ((is_valid = process_message(message)) == 0);
+       
 
         // printf("Entered message is: %s", message);
         //process the message
