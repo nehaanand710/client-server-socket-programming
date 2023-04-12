@@ -20,6 +20,7 @@
 
 
 int receive_text(int sockfd, char *buffer) {
+    memset(buffer, '\0', BUFFER_SIZE);
     int n = read(sockfd, buffer, BUFFER_SIZE);
     if (n < 0) {
         perror("ERROR: Failed to receive text message");
