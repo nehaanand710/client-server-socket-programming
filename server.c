@@ -19,8 +19,7 @@
 int is_mirror = 0;
 int* is_other_down;
 
-// Tokenizes the given string `str` by space and stores the tokens in `tokens`.
-// Returns the number of tokens found.
+
 
 long long get_time() {
     struct timeval tv;
@@ -28,6 +27,8 @@ long long get_time() {
     return tv.tv_sec * 1000LL + tv.tv_usec / 1000;
 }
 
+// Tokenizes the given string `str` by space and stores the tokens in `tokens`.
+// Returns the number of tokens found.
 int tokenize_string(const char *str, char **tokens) {
     char *token;
     int token_count = 0;
@@ -56,7 +57,6 @@ int tokenize_string(const char *str, char **tokens) {
 char* execute_command(char* cmd) {
     // return "sample_text";
     char buffer[BUFFER_SIZE-1];
-    memset(buffer, '\0', sizeof(buffer));
     FILE* fp;
     char* result;
 
@@ -67,14 +67,11 @@ char* execute_command(char* cmd) {
     }
 
     // Allocate memory for result string
-    result = (char*) malloc(BUFFER_SIZE);
-    memset(result, '\0', sizeof(result));
+    result = (char*)malloc(sizeof(char) * (BUFFER_SIZE));
 
     while (fgets(buffer, sizeof(buffer), fp) != NULL) {
         strcat(result, buffer);
-        memset(buffer, '\0', sizeof(buffer));
     }
-    strcat(result, "\0");
 
     pclose(fp);
     return result;
@@ -223,17 +220,17 @@ void set_other_status (int is_down) {
     memcpy(is_other_down, val, sizeof(int));
 }
 
-// void *heartbeat(void *arg) {
-//     int connfd = *(int *)arg;
-//     while(1) {
-//         // printf("sending heartbeat\n");
-//         sleep(5); // wait for 5 seconds
-//         if(send(connfd, "heartbeat", 9, 0) == -1) {
-//             perror("send");
-//             exit(EXIT_FAILURE);
-//         }
-//     }
-// }
+void *heartbeat(void *arg) {
+    int connfd = *(int *)arg;
+    while(1) {
+        // printf("sending heartbeat\n");
+        sleep(5); // wait for 5 seconds
+        if(send(connfd, "heartbeat", 9, 0) == -1) {
+            perror("send");
+            exit(EXIT_FAILURE);
+        }
+    }
+}
 
 void *server_thread(void *arg) {
     int server_fd, new_socket, valread;
@@ -336,17 +333,45 @@ void *mirror_thread(void *arg) {
     return NULL;
 }
 
-//cmd is the find criteria. The files that are returned from this command will be included in the tar
-void find_and_send_tar (int new_socket, char* cmd, char* filename) {
-    char* result = execute_command(cmd);
+void process_message (int new_socket, char* message) {
+    char* cmd = malloc(200);
+    char** tokens = malloc(strlen(message)*sizeof(char));
+    int n = tokenize_string(message, tokens);
+    
+    //generate unique filename
+    char* filename = malloc(30);
+    sprintf(filename, "temp_%lld.tar.gz", get_time());
+    
+    if (strcmp(message, "quit") == 0) {
+        printf("[*] SERVER: Client closed connection\n\n");
+        exit(0);
+    }
 
-    if (strlen(result) == 0) {
-        send_text(new_socket, "No file found");
-    } else {
-        //create tar
-        sprintf(cmd, "%s | tar -czvf %s --null -T - > /dev/null 2>&1", cmd, filename);
+    else if (strncmp(message, "findfile", 8) == 0) {
+
+        sprintf(cmd, "find ~ -name %s -printf \"%%f, size: %%s bytes, created on: %%t\n\" -quit", tokens[1]);
+        printf("cmd value: %s\n", cmd);
+        char* result = execute_command(cmd);
+        if (strlen(result) == 0) {
+            result = "File Not Found";
+        }
+
+        send_text(new_socket, result);
+
+    }
+
+    else if (strncmp(message, "sgetfiles", 9) == 0) {
+        char* min_size = tokens[1];
+        char* max_size = tokens[2];
+        
+        //generate unique filename
+        char* filename = malloc(30);
+        sprintf(filename, "temp_%lld.tar.gz", get_time());
+      
+        //create tar.gz file
+        sprintf(cmd, "find ~ -type f -size +\"%s\"c -size -\"%s\"c -print0 | tar -czvf %s --null -T - > /dev/null 2>&1", min_size, max_size, filename);
         system(cmd);
-
+        
         //send file
         send_file(new_socket, filename);
 
@@ -354,48 +379,25 @@ void find_and_send_tar (int new_socket, char* cmd, char* filename) {
         sprintf(cmd, "rm -f %s", filename);
         system(cmd);
     }
-    free(result);
-}
 
-void process_message (int new_socket, char* message) {
-    
-    if (strcmp(message, "quit") == 0) {
-        printf("[*] SERVER: Client closed connection\n\n");
-        exit(0);
-    }
+    else if (strncmp(message, "dgetfiles", 9) == 0) {
+        char* min_date = tokens[1];
+        char* max_date = tokens[2];
+      
+        //create tar.gz file
+        sprintf(cmd, "find ~ -type f -newermt \"%s\" ! -newermt \"%s\" -print0 | tar -czvf %s --null -T - > /dev/null 2>&1", min_date, max_date, filename);
+        system(cmd);
+        
+        //send file
+        send_file(new_socket, filename);
 
-    char* cmd = malloc(200);
-    char** tokens = malloc(strlen(message)*sizeof(char));
-    int n = tokenize_string(message, tokens);
-
-    if (strncmp(message, "findfile", 8) == 0) {
-        sprintf(cmd, "find ~ -name %s -printf \"%%f, size: %%s bytes, created on: %%t\n\" -quit", tokens[1]);
-        char* result = execute_command(cmd);
-        if (strlen(result) == 0) {
-            result = "File Not Found";
-        }
-
-        send_text(new_socket, result);
-    }
-
-    //generate unique filename
-    char* filename = malloc(30);
-    sprintf(filename, "temp_%lld.tar.gz", get_time());
-
-    if (strncmp(message, "sgetfiles", 9) == 0) {
-        //create find condition
-        sprintf(cmd, "find ~ -type f -size +\"%s\"c -size -\"%s\"c -print0", tokens[1], tokens[2]);
-        find_and_send_tar(new_socket, cmd, filename);
-    }
-
-    else if (strncmp(message, "dgetfiles", 9) == 0) {      
-        //create find condition
-        sprintf(cmd, "find ~ -type f -newermt \"%s\" ! -newermt \"%s\" -print0", tokens[1], tokens[2]);
-        find_and_send_tar(new_socket, cmd, filename);
+        // remove the file from server
+        sprintf(cmd, "rm -f %s", filename);
+        system(cmd);
     }
 
     else if (strncmp(message, "getfiles", 8) == 0) {
-        //generate find criteria
+        
         sprintf(cmd, "find ~ \\( -name %s", tokens[1]);
         
         int i;
@@ -405,11 +407,29 @@ void process_message (int new_socket, char* message) {
 
         sprintf(cmd, "%s \\) -print0", cmd);
 
-        find_and_send_tar(new_socket, cmd, filename);
+        char* result = execute_command(cmd);
+
+        printf("result len: %ld", strlen(result));
+
+        if (strlen(result) == 0) {
+            send_text(new_socket, "No file found");
+        } else {
+            //create tar
+            sprintf(cmd, "%s | tar -czvf %s --null -T - ", cmd, filename);
+            system(cmd);
+
+            //send file
+            send_file(new_socket, filename);
+
+            // remove the file from server
+            sprintf(cmd, "rm -f %s", filename);
+            system(cmd);
+        }
+
     }
 
     else if (strncmp(message, "gettargz", 8) == 0) {
-        //generate find criteria
+        //find ~ -type f \\( -iname \"*.$1\" -o -iname \"*.$2\" \\) -print0
         sprintf(cmd, "find ~ -type f \\( -iname \"*.%s\"", tokens[1]);
         
         int i;
@@ -419,12 +439,29 @@ void process_message (int new_socket, char* message) {
 
         sprintf(cmd, "%s \\) -print0", cmd);
 
-        find_and_send_tar(new_socket, cmd, filename);
+        char* result = execute_command(cmd);
+
+        printf("result len: %ld", strlen(result));
+
+        if (strlen(result) == 0) {
+            send_text(new_socket, "No file found");
+        } else {
+            //create tar
+            sprintf(cmd, "%s | tar -czvf %s --null -T - ", cmd, filename);
+            system(cmd);
+
+            //send file
+            send_file(new_socket, filename);
+
+            // remove the file from server
+            sprintf(cmd, "rm -f %s", filename);
+            system(cmd);
+        }
+
     }
 
     free(cmd);
     free(filename);
-    free(tokens);
     printf("[*] SERVER: Response sent to client\n\n");
     fflush(stdout);
 }

@@ -10,6 +10,8 @@
 #include <arpa/inet.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <stdbool.h>
+
 
 #define SERVER_IP "127.0.0.1" // Change this to the IP address of your server
 #define MIRROR_IP "127.0.0.1" // Change this to the IP address of your server
@@ -157,11 +159,50 @@ int incoming_msg_tokens(const char *str, char **tokens) {
     }
 
     // Free the temporary string copy.
-    free(str_copy);
+   // free(str_copy);
 
     // Return the number of tokens found.
     return token_count;
 }
+
+bool isLeapYear(int year) {
+    return ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0);
+}
+
+bool isValidDate(int year, int month, int day) {
+    if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) {
+        return false;
+    }
+
+    int daysInMonth[] = {31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31};
+    if (month == 2 && isLeapYear(year)) {
+        daysInMonth[1] = 29;
+    }
+
+    return day <= daysInMonth[month - 1];
+}
+
+
+bool isValidDateFormat(char *date) {
+ int year, month, day;
+         if (sscanf(date, "%d-%d-%d", &year, &month, &day) == 3) {
+            
+            //printf("date given is %s\n",tokens[1]);
+            //        fflush(stdout);
+            if (isValidDate(year, month, day)) {
+                //printf("Valid date!\n");
+            } else {
+                printf("Invalid date %s.\n",date);
+                 fflush(stdout);
+                 return 0;
+            }
+        } else {
+            printf("Invalid input format of date %s.Kindly enter in the form of yyyy-mm-dd\n",date);
+            return 0;
+        }
+    return 1;
+}
+
 
 int process_message (char* message) {
 
@@ -194,7 +235,12 @@ int process_message (char* message) {
                     returnval =0;
                  }
         else {
-            
+               //printf("the size are %s %s \n",tokens[2],tokens[3]);
+               // fflush(stdout);
+             int size1= atoi(tokens[2]);
+             int size2 =atoi(tokens[3]);
+             //printf("the size are %d %d  \n",size1,size2);
+             fflush(stdout);
             }
             fflush(stdout);
             
@@ -203,15 +249,24 @@ int process_message (char* message) {
     
      else  if (strcmp(tokens[0],"dgetfiles")  == 0) {
         if(num_commands !=3) {
-                    printf("[Correct Command Usage]  sgetfiles  size1 size2 <-u>\n");
+                    printf("[Correct Command Usage]  dgetfiles  date1 date2 <-u>\n");
                     fflush(stdout);
                     returnval =0;
                  }
         else {
-            
-        }
-     }
+           
+                if(!(isValidDateFormat(tokens[1]) &&  isValidDateFormat(tokens[2]))) {
+                    printf("[Correct Command Usage]  dgetfiles  date1 date2 <-u>\n");
+                    printf("date1 date2 should follow the format yyyy-mm-dd and date1> date2\n");
+                    fflush(stdout);
+                    returnval =0;
+                }
 
+
+            }
+        }
+
+     
       else  if (strcmp(tokens[0],"getfiles")  == 0) {
         if(num_commands >8) {
                     printf("[Correct Command Usage]  sgetfiles  file1 file2 file3 file4 file5 file6<-u>\n");
@@ -219,20 +274,15 @@ int process_message (char* message) {
                     fflush(stdout);
                     returnval =0;
                  }
-        else {
-            
-        }
-     }
+            }
      else  if (strcmp(tokens[0],"gettargz")  == 0) {
         if(num_commands <8) {
                     printf("[Correct Command Usage]  gettargz <extensionlist> <-u>\n");
-                    printf("Maximum six extensions can be entered");f
-                    flush(stdout);
+                    printf("Maximum six extensions can be entered");
+                    fflush(stdout);
                     returnval =0;
                  }
-        else {
-            
-        }
+        
      }
 
     //checking if the user has entered quit
@@ -348,9 +398,10 @@ int main() {
         int is_valid;
         
             printf("Enter message to be sent to the server:\n");
-            gets(message);
+            //DISCUUS WITH 
+            //fgets(buffer, sizeof(buffer),message);
        
-
+            gets(message);
         // printf("Entered message is: %s", message);
         //process the message
         is_valid = process_message(message);
