@@ -9,6 +9,7 @@
 #include <errno.h>
 #include <pthread.h>
 #include <sys/mman.h>
+#include <sys/time.h>
 
 #define SERVER_PORT 8080
 #define MIRROR_PORT 8082
@@ -23,6 +24,64 @@ char* gettargz = "find ~ -type f \( -iname \"*.$1\" -o -iname \"*.$2\" \) -print
 
 int is_mirror = 0;
 int* is_other_down;
+
+// Tokenizes the given string `str` by space and stores the tokens in `tokens`.
+// Returns the number of tokens found.
+
+long long get_time() {
+    struct timeval tv;
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec * 1000LL + tv.tv_usec / 1000;
+}
+
+int tokenize_string(const char *str, char **tokens) {
+    char *token;
+    int token_count = 0;
+
+    // Make a copy of the input string, since strtok modifies the original string.
+    char *str_copy = strdup(str);
+
+    // Tokenize the string by space.
+    token = strtok(str_copy, " ");
+    while (token != NULL) {
+        // Copy the token into the output array.
+        tokens[token_count] = strdup(token);
+        token_count++;
+
+        // Get the next token.
+        token = strtok(NULL, " ");
+    }
+
+    // Free the temporary string copy.
+    free(str_copy);
+
+    // Return the number of tokens found.
+    return token_count;
+}
+
+char* execute_command(char* cmd) {
+    // return "sample_text";
+    char buffer[BUFFER_SIZE-1];
+    FILE* fp;
+    char* result;
+    long size = 1024;
+
+    fp = popen(cmd, "r");
+    if (fp == NULL) {
+        printf("Failed to run command\n");
+        return "";
+    }
+
+    // Allocate memory for result string
+    result = (char*)malloc(sizeof(char) * (BUFFER_SIZE));
+
+    while (fgets(buffer, sizeof(buffer), fp) != NULL) {
+        strcat(result, buffer);
+    }
+
+    pclose(fp);
+    return result;
+}
 
 int send_text(int sockfd, char *text) {
     char buffer[BUFFER_SIZE];
@@ -91,7 +150,7 @@ int send_file(int sockfd, char *filename) {
     }
 
     // Send filename
-    n = write(sockfd, "test.json", strlen("test.json"));
+    n = write(sockfd, "temp.tar.gz", strlen("temp.tar.gz"));
     sprintf(buffer, "%ld\n", filesize);
     if (n < 0) {
         perror("ERROR: Failed to send filename");
@@ -312,13 +371,61 @@ void *mirror_thread(void *arg) {
     return NULL;
 }
 
-char* process_message (char* message) {
+char* process_message (int new_socket, char* message) {
     // quit request from client
+    // printf("message: %s\n", message);
+    char* cmd = malloc(200);
+    char** tokens = malloc(strlen(message)*sizeof(char));
+    int n = tokenize_string(message, tokens);
     if (strcmp(message, "quit") == 0) {
         printf("[*] SERVER: Client closed connection\n\n");
         exit(0);
     }
+
+    else if (strncmp(message, "findfile", 8) == 0) {
+        //send response text
+        // char** tokens = malloc(strlen(message)*sizeof(char));
+        // int n = tokenize_string(message, tokens);
+        // int i;
+        // for (i=0;i<n;i++) {
+        //     printf("token[i] => %s", tokens[i]);
+        // }
+        sprintf(cmd, "find ~ -name %s -printf \"%%f, size: %%s bytes, created on: %%t\n\" -quit", tokens[1]);
+        printf("cmd value: %s\n", cmd);
+        // cmd= "ls -l";
+        char* result = execute_command(cmd);
+        if (strlen(result) == 0) {
+            result = "File Not Found";
+        }
+
+        send_text(new_socket, result);
+
+        // send_text(new_socket, "sample_text");
+
+    }
+
+    else if (strncmp(message, "sgetfiles", 9) == 0) {
+        char* min_size = tokens[1];
+        char* max_size = tokens[2];
+        
+        //generate unique filename
+        char* filename = malloc(30);
+        sprintf(filename, "temp_%lld.tar.gz", get_time());
+      
+        //create tar.gz file
+        sprintf(cmd, "find ~ -type f -size +\"%s\"c -size -\"%s\"c -print0 | tar -czvf %s --null -T - > /dev/null 2>&1", min_size, max_size, filename);
+        system(cmd);
+        
+        //send file
+        send_file(new_socket, filename);
+
+        // remove the file from server
+        sprintf(cmd, "rm -f %s", filename);
+        system(cmd);
+    }
+    free(cmd);
     char* response = "Processed message";
+    printf("[*] SERVER: Response sent to client\n\n");
     return response;
 }
 
@@ -351,10 +458,11 @@ void process_client(int new_socket) {
 
         fflush(stdout);
 
-        char* response = process_message(buffer);
+        char* response = process_message(new_socket, buffer);
+        fflush(stdout);
 
-        //send response text
-        send_text(new_socket, "sample_text");
+        // //send response text
+        // send_text(new_socket, "sample_text");
         // send_file(new_socket, "/home/cj/replies.json");
     }
 }

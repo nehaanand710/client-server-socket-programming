@@ -26,7 +26,7 @@ int receive_text(int sockfd, char *buffer) {
         return -1;
     }
     buffer[n] = '\0';
-    printf("Received text message: %s\n", buffer);
+    printf("\nResponse from the server:\n %s\n", buffer);
 
     //send ack
     n = write(sockfd, "ack", 3);
@@ -53,7 +53,7 @@ int receive_file(int sockfd, char* buffer) {
     }
     buffer[n] = '\0';
     strcpy(filename, buffer);
-    printf("Received filename: %s\n", filename);
+    // printf("Received filename: %s\n", filename);
 
     //send ack
     n = write(sockfd, "ack", 3);
@@ -70,7 +70,7 @@ int receive_file(int sockfd, char* buffer) {
     }
     buffer[n] = '\0';
     filesize = atol(buffer);
-    printf("Received filesize: %ld\n", filesize);
+    printf("\nReceived filesize: %ld\n", filesize);
 
     //send ack
     n = write(sockfd, "ack", 3);
@@ -98,7 +98,7 @@ int receive_file(int sockfd, char* buffer) {
         filesize -= n;
     }
     fclose(fp);
-    printf("Received file: %s\n", filename);
+    printf("Received file: %s\n\n", filename);
 
     //send ack
     n = write(sockfd, "ack", 3);
@@ -134,7 +134,7 @@ int get_message(int sockfd, char* buffer) {
         return -1;
     }
     buffer[n] = '\0';
-    printf("Received message type: %s\n", buffer);
+    // printf("Received message type: %s\n", buffer);
     
     //send ack
     n = write(sockfd, "ack", 3);
@@ -156,7 +156,7 @@ int get_message(int sockfd, char* buffer) {
 int process_message (char* message) {
     //printf("In process message: %s\n", message);
     // fflush(stdout);
-
+    return 1;
    if (strlen(message) == 0) {
         return 0;
     }
@@ -232,7 +232,7 @@ int process_message (char* message) {
                 // Close connection to client and exit child process
                 //close(sock);
                 //break;
-                returnval= 0;
+                returnval= 1;
     }
 
     return returnval;
@@ -352,6 +352,10 @@ int main() {
         if (is_valid) {
             
             send(sock, message, strlen(message), 0);
+
+            if (strcmp(message, "quit") == 0) {
+                exit(0);
+            }
            
         } else {
             //printf("Message is not correct. try again\n");
@@ -359,13 +363,13 @@ int main() {
             continue;
         }
 
-        printf("Message sent to server\n");
+        // printf("Message sent to server\n");
 
         // Receive response from server
         // valread = read(sock, buffer, BUFFER_SIZE);
         get_message(sock, buffer);
 
-        printf("Response from the server: %s\n", buffer);
+        // printf("Response from the server: %s\n", buffer);
         // close(sock); // Close connection to server
     }
 
