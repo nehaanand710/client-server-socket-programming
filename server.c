@@ -548,19 +548,20 @@ int main(int argc, char* argv[]) {
             continue; // Try again
         }
 
-        printf("[*] SERVER: New client connection\n\n");
-        fflush(stdout);
-        
         // Fork new process to handle client request
         pid_t pid = fork();
         if (pid == 0) { // Child process
             close(server_fd); // Close listening socket in child process
             if (is_mirror) {
+                printf("[*] MIRROR: New client connection\n\n");
+                fflush(stdout);
                 char* accept_message = "Success: Accepted";
                 send(new_socket, accept_message, strlen(accept_message), 0);
                 process_client(new_socket);
             } else {
                 if (*is_other_down || count < 4 || count > 7) {
+                    printf("[*] SERVER: New client connection\n\n");
+                    fflush(stdout);
                     char* accept_message = "Success: Accepted";
                     send(new_socket, accept_message, strlen(accept_message), 0);
                     process_client(new_socket);

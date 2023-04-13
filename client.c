@@ -20,6 +20,15 @@
 #define BUFFER_SIZE 16384 // size of the buffer to read from the socket
 #define MAX_WORDS_IN_COMMAND 8
 
+int is_numeric(const char *str) {
+    while (*str) {
+        if (!isdigit(*str)) {
+            return 0;
+        }
+        str++;
+    }
+    return 1;
+}
 
 int receive_text(int sockfd, char *buffer) {
     memset(buffer, '\0', BUFFER_SIZE);
@@ -41,7 +50,7 @@ int receive_text(int sockfd, char *buffer) {
     return 0;
 }
 
-int receive_file(int sockfd, char* buffer) {
+int receive_file(int sockfd, char* buffer/*, is_user_flag*/) {
     // char buffer[BUFFER_SIZE];
     int n;
     FILE *fp;
@@ -110,11 +119,16 @@ int receive_file(int sockfd, char* buffer) {
         return -1;
     }
 
+    // if (is_user_flag) {
+    //     //unzip
+    // }
+
     return 0;
 }
 
-int get_message(int sockfd, char* buffer) {
+int get_message(int sockfd, char* buffer/*, is_user_flag*/) {
     // char buffer[BUFFER_SIZE];
+    //receive response type
     int n = read(sockfd, buffer, BUFFER_SIZE);
     if (n < 0) {
         perror("ERROR: Failed to receive message type");
@@ -133,7 +147,7 @@ int get_message(int sockfd, char* buffer) {
     if (strcmp(buffer, "text") == 0) {
         return receive_text(sockfd, buffer);
     } else if (strcmp(buffer, "file") == 0) {
-        return receive_file(sockfd, buffer);
+        return receive_file(sockfd, buffer/*, is_user_flag*/);
     } else {
         printf("ERROR: Unknown message type: %s\n", buffer);
         return -1;
@@ -203,33 +217,32 @@ bool isValidDateFormat(char *date) {
 }
 
 bool isdate1lessThanDate2(char *date1,char * date2) {
-                    int year1,year2,month1,month2,day1,day2;
-                    sscanf(date1, "%d-%d-%d", &year1, &month1, &day1);
-                    sscanf(date2, "%d-%d-%d", &year2, &month2, &day2);
+    int year1,year2,month1,month2,day1,day2;
+    sscanf(date1, "%d-%d-%d", &year1, &month1, &day1);
+    sscanf(date2, "%d-%d-%d", &year2, &month2, &day2);
 
-                    if(year1 <= year2) {
-                        return true;
-                    }
-                    else if (year1> year2) {
-                        return false;
-                    }
-                    else  {
-                        if (month1<= month2) {
-                            return true;
-                        }
-                        else if (month1>month2) {
-                            return false;
-                        }
-                        else {
-                            if( day1<= day2) {
-                                return true;
-                            }
-                            else {
-                                return false;
-                            }
-                        }
-                    }
-
+    if(year1 <= year2) {
+        return true;
+    }
+    else if (year1> year2) {
+        return false;
+    }
+    else  {
+        if (month1<= month2) {
+            return true;
+        }
+        else if (month1>month2) {
+            return false;
+        }
+        else {
+            if( day1<= day2) {
+                return true;
+            }
+            else {
+                return false;
+            }
+        }
+    }
 }
 
 int process_message (char* message) {
@@ -241,7 +254,7 @@ int process_message (char* message) {
     char* cmd = malloc(200);
     char** tokens = malloc(strlen(message)*sizeof(char));
     int num_commands = incoming_msg_tokens(message, tokens);
-    int returnval=0;
+    int returnval=1;
 
     incoming_msg_tokens(message,tokens);
           
@@ -257,7 +270,7 @@ int process_message (char* message) {
                  }
      }
      else  if (strcmp(tokens[0],"sgetfiles")  == 0) {
-        if(num_commands !=4) {
+        if(num_commands !=3) {
                     printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
                     fflush(stdout);
                     returnval =0;
@@ -266,20 +279,22 @@ int process_message (char* message) {
                //printf("the size are %s %s \n",tokens[2],tokens[3]);
                // fflush(stdout);
                //SEG FAULT handling
-             int size1= atoi(tokens[2]);
-             int size2 =atoi(tokens[3]);
-             if(!(size1>0 && size2>0 && (size1<=size2))) {
-                    printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
-                    printf("size1>0 size>0 and size1<=size2 ,current values are %d %d\n",size1,size2);
-                    fflush(stdout);
-                    returnval =0;
-             }
-             
+                if (is_numeric(tokens[1]) && is_numeric(tokens[2])) {
+                    long size1 = strtol(tokens[1], NULL, 10);
+                    long size2 = strtol(tokens[2], NULL, 10);
+                    // int size1= atoi(tokens[1]);
+                    // int size2 =atoi(tokens[2]);
+                    if(!(size1>0 && size2>0 && (size1<=size2))) {
+                        printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
+                        printf("size1>0 size>0 and size1<=size2 ,current values are %d %d\n",size1,size2);
+                        fflush(stdout);
+                        returnval =0;
+                    }
+                } else {
+                    returnval = 0;
+                }
             }
-           
-            
         }
-     
     
      else  if (strcmp(tokens[0],"dgetfiles")  == 0) {
         if(num_commands !=3) {
@@ -311,7 +326,7 @@ int process_message (char* message) {
 
      
       else  if (strcmp(tokens[0],"getfiles")  == 0) {
-        if((num_commands >=1 && num_commands >7) {
+        if(num_commands >=1 && num_commands >7) {
                     printf("[Correct Command Usage]  sgetfiles  file1 file2 file3 file4 file5 file6<-u>\n");
                     printf("Maximum six file names can be entered");
                     fflush(stdout);
@@ -442,8 +457,8 @@ int main() {
         
             printf("Enter message to be sent to the server:\n");
             //SEG FAULT :DISCUUS WITH
-            //fgets(buffer, sizeof(buffer),message);
-              gets(message);
+            // fgets(buffer, sizeof(buffer),message);
+            gets(message);
         // printf("Entered message is: %s", message);
         //process the message
         is_valid = process_message(message);
@@ -468,6 +483,8 @@ int main() {
 
         // Receive response from server
         // valread = read(sock, buffer, BUFFER_SIZE);
+
+        // TODO: Send is_user_flag
         get_message(sock, buffer);
 
         // printf("Response from the server: %s\n", buffer);
