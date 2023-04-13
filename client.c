@@ -189,13 +189,12 @@ bool isValidDateFormat(char *date) {
             
             //printf("date given is %s\n",tokens[1]);
             //        fflush(stdout);
-            if (isValidDate(year, month, day)) {
-                //printf("Valid date!\n");
-            } else {
-                printf("Invalid date %s.\n",date);
+            if (!isValidDate(year, month, day)) {
+                 printf("Invalid date %s.\n",date);
                  fflush(stdout);
                  return 0;
             }
+            
         } else {
             printf("Invalid input format of date %s.Kindly enter in the form of yyyy-mm-dd\n",date);
             return 0;
@@ -203,6 +202,35 @@ bool isValidDateFormat(char *date) {
     return 1;
 }
 
+bool isdate1lessThanDate2(char *date1,char * date2) {
+                    int year1,year2,month1,month2,day1,day2;
+                    sscanf(date1, "%d-%d-%d", &year1, &month1, &day1);
+                    sscanf(date2, "%d-%d-%d", &year2, &month2, &day2);
+
+                    if(year1 <= year2) {
+                        return true;
+                    }
+                    else if (year1> year2) {
+                        return false;
+                    }
+                    else  {
+                        if (month1<= month2) {
+                            return true;
+                        }
+                        else if (month1>month2) {
+                            return false;
+                        }
+                        else {
+                            if( day1<= day2) {
+                                return true;
+                            }
+                            else {
+                                return false;
+                            }
+                        }
+                    }
+
+}
 
 int process_message (char* message) {
 
@@ -237,12 +265,18 @@ int process_message (char* message) {
         else {
                //printf("the size are %s %s \n",tokens[2],tokens[3]);
                // fflush(stdout);
+               //SEG FAULT handling
              int size1= atoi(tokens[2]);
              int size2 =atoi(tokens[3]);
-             //printf("the size are %d %d  \n",size1,size2);
-             fflush(stdout);
+             if(!(size1>0 && size2>0 && (size1<=size2))) {
+                    printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
+                    printf("size1>0 size>0 and size1<=size2 ,current values are %d %d\n",size1,size2);
+                    fflush(stdout);
+                    returnval =0;
+             }
+             
             }
-            fflush(stdout);
+           
             
         }
      
@@ -254,12 +288,21 @@ int process_message (char* message) {
                     returnval =0;
                  }
         else {
-           
+                //SEG FAULT : do we have to also put handling for less than current date
                 if(!(isValidDateFormat(tokens[1]) &&  isValidDateFormat(tokens[2]))) {
                     printf("[Correct Command Usage]  dgetfiles  date1 date2 <-u>\n");
                     printf("date1 date2 should follow the format yyyy-mm-dd and date1> date2\n");
                     fflush(stdout);
                     returnval =0;
+                }
+                else {
+                   
+                    if(!isdate1lessThanDate2(tokens[1],tokens[2])) {
+                    printf("[Correct Command Usage]  dgetfiles  date1 date2 <-u>\n");
+                    printf("date1 one must be less than equal to date2 \n");
+                    fflush(stdout);
+                    returnval =0;
+                    }
                 }
 
 
@@ -268,7 +311,7 @@ int process_message (char* message) {
 
      
       else  if (strcmp(tokens[0],"getfiles")  == 0) {
-        if(num_commands >8) {
+        if((num_commands >=1 && num_commands >7) {
                     printf("[Correct Command Usage]  sgetfiles  file1 file2 file3 file4 file5 file6<-u>\n");
                     printf("Maximum six file names can be entered");
                     fflush(stdout);
@@ -276,7 +319,7 @@ int process_message (char* message) {
                  }
             }
      else  if (strcmp(tokens[0],"gettargz")  == 0) {
-        if(num_commands <8) {
+        if(num_commands >=1 && num_commands<7) {
                     printf("[Correct Command Usage]  gettargz <extensionlist> <-u>\n");
                     printf("Maximum six extensions can be entered");
                     fflush(stdout);
@@ -398,10 +441,9 @@ int main() {
         int is_valid;
         
             printf("Enter message to be sent to the server:\n");
-            //DISCUUS WITH 
+            //SEG FAULT :DISCUUS WITH
             //fgets(buffer, sizeof(buffer),message);
-       
-            gets(message);
+              gets(message);
         // printf("Entered message is: %s", message);
         //process the message
         is_valid = process_message(message);
