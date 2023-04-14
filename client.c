@@ -12,6 +12,7 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <libtar.h>
+#include <fcntl.h>
 
 
 #define SERVER_IP "127.0.0.1" // Change this to the IP address of your server
@@ -20,6 +21,7 @@
 #define MIRROR_PORT 8082     // Change this to the port number your server is listening on
 #define BUFFER_SIZE 16384 // size of the buffer to read from the socket
 #define MAX_WORDS_IN_COMMAND 8
+#define TAR_FILE_NAME temp.tar.gz
 
 struct result_process_message {
     int isvalidmsg ;
@@ -130,8 +132,9 @@ int receive_file(int sockfd, char* buffer, int is_user_flag) {
         TAR *tar;
         int ret;
 
-        tar = tar_open("temp.tar.gz", NULL, O_RDONLY, 0, TAR_GNU);
+        /*tar = tar_open(&tar,"temp.tar.gz", NULL, O_RDONLY, 0777, TAR_GNU);
         if (tar == NULL) {
+            //tar_strerror();
             fprintf(stderr, "Failed to open tar temp.tar.gz\n");
             return 1;
         }
@@ -146,8 +149,15 @@ int receive_file(int sockfd, char* buffer, int is_user_flag) {
         tar_close(tar);
         printf("Tar archive extracted successfully\n");
         return 0;
+        }*/
+
+        ret =system("tar xf temp.tar.gz");
+         if (ret != 0 ) {
+            //tar_strerror();
+            fprintf(stderr, "Failed to open tar temp.tar.gz\n");
+            return 1;
         }
-     
+     }
     return 0;
 }
 
@@ -333,7 +343,7 @@ struct result_process_message process_message (char* message) {
                     // int size2 =atoi(tokens[2]);
                     if(!(size1>=0 && size2>=0 && (size1<=size2))) {
                         printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
-                        printf("size1>=0 size>=0 and size1<=size2 ,current values are %d %d\n",size1,size2);
+                        printf("size1>0 size>0 and size1<=size2 ,current values are %d %d\n",size1,size2);
                         fflush(stdout);
                         returnval =0;
                     }
