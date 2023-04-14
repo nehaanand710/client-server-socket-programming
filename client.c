@@ -11,6 +11,7 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <stdbool.h>
+#include <libtar.h>
 
 
 #define SERVER_IP "127.0.0.1" // Change this to the IP address of your server
@@ -126,8 +127,27 @@ int receive_file(int sockfd, char* buffer, int is_user_flag) {
 
      if (is_user_flag) {
         printf("unzip \n");
-     }
+        TAR *tar;
+        int ret;
 
+        tar = tar_open("temp.tar.gz", NULL, O_RDONLY, 0, TAR_GNU);
+        if (tar == NULL) {
+            fprintf(stderr, "Failed to open tar temp.tar.gz\n");
+            return 1;
+        }
+
+        ret = tar_extract_all(tar, ".");
+        if (ret != 0) {
+            fprintf(stderr, "Failed to extract tar temp.tar.gz\n");
+            tar_close(tar);
+            return 1;
+        }
+
+        tar_close(tar);
+        printf("Tar archive extracted successfully\n");
+        return 0;
+        }
+     
     return 0;
 }
 
@@ -509,3 +529,4 @@ int main() {
 
     return 0;
 }
+
