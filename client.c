@@ -331,9 +331,9 @@ struct result_process_message process_message (char* message) {
                     long size2 = strtol(tokens[2], NULL, 10);
                     // int size1= atoi(tokens[1]);
                     // int size2 =atoi(tokens[2]);
-                    if(!(size1>0 && size2>0 && (size1<=size2))) {
+                    if(!(size1>=0 && size2>=0 && (size1<=size2))) {
                         printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
-                        printf("size1>0 size>0 and size1<=size2 ,current values are %d %d\n",size1,size2);
+                        printf("size1>=0 size>=0 and size1<=size2 ,current values are %d %d\n",size1,size2);
                         fflush(stdout);
                         returnval =0;
                     }
