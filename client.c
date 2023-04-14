@@ -20,6 +20,11 @@
 #define BUFFER_SIZE 16384 // size of the buffer to read from the socket
 #define MAX_WORDS_IN_COMMAND 8
 
+struct result_process_message {
+    int isvalidmsg ;
+    int containsuFlag;
+}result;
+
 int is_numeric(const char *str) {
     while (*str) {
         if (!isdigit(*str)) {
@@ -50,7 +55,7 @@ int receive_text(int sockfd, char *buffer) {
     return 0;
 }
 
-int receive_file(int sockfd, char* buffer/*, is_user_flag*/) {
+int receive_file(int sockfd, char* buffer, int is_user_flag) {
     // char buffer[BUFFER_SIZE];
     int n;
     FILE *fp;
@@ -119,14 +124,14 @@ int receive_file(int sockfd, char* buffer/*, is_user_flag*/) {
         return -1;
     }
 
-    // if (is_user_flag) {
-    //     //unzip
-    // }
+     if (is_user_flag) {
+        printf("unzip \n");
+     }
 
     return 0;
 }
 
-int get_message(int sockfd, char* buffer/*, is_user_flag*/) {
+int get_message(int sockfd, char* buffer,int  is_user_flag) {
     // char buffer[BUFFER_SIZE];
     //receive response type
     int n = read(sockfd, buffer, BUFFER_SIZE);
@@ -147,7 +152,7 @@ int get_message(int sockfd, char* buffer/*, is_user_flag*/) {
     if (strcmp(buffer, "text") == 0) {
         return receive_text(sockfd, buffer);
     } else if (strcmp(buffer, "file") == 0) {
-        return receive_file(sockfd, buffer/*, is_user_flag*/);
+        return receive_file(sockfd, buffer, is_user_flag);
     } else {
         printf("ERROR: Unknown message type: %s\n", buffer);
         return -1;
@@ -245,20 +250,42 @@ bool isdate1lessThanDate2(char *date1,char * date2) {
     }
 }
 
-int process_message (char* message) {
-
+struct result_process_message process_message (char* message) {
+    struct result_process_message result;
     // return 1;
     if (strlen(message) == 0) {
-        return 0;
+        result.isvalidmsg =0;
+        result.containsuFlag=0;
+        return result;
+    }
+
+       //checking if the user has entered quit
+    if (strcmp(message, "quit") == 0) {
+                // Close connection to client and exit child process
+                //close(sock);
+                //break;
+                result.isvalidmsg =1;
+                result.containsuFlag=0;
+                return result;
     }
     char* cmd = malloc(200);
     char** tokens = malloc(strlen(message)*sizeof(char));
     int num_commands = incoming_msg_tokens(message, tokens);
     int returnval=1;
-
-    incoming_msg_tokens(message,tokens);
-          
-   
+    int is_user_flag=0;
+    //printf("total tokens are %d \n",num_commands);
+    int  message_len= strlen(message);
+        if(strcmp(tokens[num_commands-1],"-u") == 0) {
+                 //printf("String contains -u %s\n",message);
+                
+                if(message_len>2) {
+                    message[message_len-2] = '\0';
+                }
+                // updating variables
+                num_commands= num_commands -1;
+                is_user_flag =1;
+                // printf("String contains -u after %s \n",message);
+         }  
     // printf("Number of wrods eneterd by user %d \n",num_commands);
      if (strcmp(tokens[0],"findfile")  == 0) {
          //printf("Inside first condition %s \n",tokens[0]);
@@ -270,7 +297,7 @@ int process_message (char* message) {
                  }
      }
      else  if (strcmp(tokens[0],"sgetfiles")  == 0) {
-        if(num_commands !=3) {
+        if(num_commands !=3 ) {
                     printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
                     fflush(stdout);
                     returnval =0;
@@ -297,13 +324,13 @@ int process_message (char* message) {
         }
     
      else  if (strcmp(tokens[0],"dgetfiles")  == 0) {
-        if(num_commands !=3) {
+        if(num_commands !=3 ) {
                     printf("[Correct Command Usage]  dgetfiles  date1 date2 <-u>\n");
                     fflush(stdout);
                     returnval =0;
                  }
         else {
-                //SEG FAULT : do we have to also put handling for less than current date
+                
                 if(!(isValidDateFormat(tokens[1]) &&  isValidDateFormat(tokens[2]))) {
                     printf("[Correct Command Usage]  dgetfiles  date1 date2 <-u>\n");
                     printf("date1 date2 should follow the format yyyy-mm-dd and date1> date2\n");
@@ -326,32 +353,40 @@ int process_message (char* message) {
 
      
       else  if (strcmp(tokens[0],"getfiles")  == 0) {
-        if(num_commands >=1 && num_commands >7) {
+        printf("the value of num_cmnd is %d\n",num_commands);
+        if(!(num_commands >=2 && num_commands <7)) {
                     printf("[Correct Command Usage]  sgetfiles  file1 file2 file3 file4 file5 file6<-u>\n");
-                    printf("Maximum six file names can be entered");
+                    printf("Maximum six file names can be entered \n");
                     fflush(stdout);
                     returnval =0;
                  }
             }
      else  if (strcmp(tokens[0],"gettargz")  == 0) {
-        if(num_commands >=1 && num_commands<7) {
+        if(!(num_commands >=2 && num_commands<7)) {
                     printf("[Correct Command Usage]  gettargz <extensionlist> <-u>\n");
-                    printf("Maximum six extensions can be entered");
+                    printf("Minimum 1 and Maximum six extensions can be entered \n");
                     fflush(stdout);
                     returnval =0;
                  }
         
      }
+     else {
+        printf("Invalid Command Type !!! \n ");
+        printf("Please choose one of the following commands \n");
+        printf("1.    findfile filename \n");
+        printf("2.    sgetfiles size1 size2 <-u> \n");
+        printf("3.    dgetfiles date1 date2 <-u> \n");
+        printf("4.    getfiles file1 file2 file3 file4 file5 file6 <-u>\n");
+        printf("5.    gettargz <extensionlist> <-u> \n");
+        printf("6.    quit \n");
 
-    //checking if the user has entered quit
-     if (strcmp(message, "quit") == 0) {
-                // Close connection to client and exit child process
-                //close(sock);
-                //break;
-                returnval= 1;
-    }
+        returnval=0;
+     }
 
-    return returnval;
+ 
+    result.isvalidmsg =returnval;
+    result.containsuFlag=is_user_flag;
+    return result;
 }
 
 int handle_ack(int* sock, char* message) {
@@ -427,44 +462,25 @@ int main() {
             printf("Mirror Down. Exiting...\n");
             exit(1);
         }
-        printf("Connected to mirror at %s:%d", MIRROR_IP, MIRROR_PORT);
+        printf("Connected to mirror at %s:%d \n", MIRROR_IP, MIRROR_PORT);
     }
-
-    // //read connection acknowledgement
-    // read(sock, buffer, BUFFER_SIZE);
-
-    // if (handle_ack(&sock, buffer) < 0) {
-    //     printf("Server rejected. Redirecting to mirror...\n");
-    //     if (connect_socket(&sock, MIRROR_IP, MIRROR_PORT) < 0) {
-    //         printf("Failed to connect with server and mirror. Exiting...\n");
-    //         exit(0);
-    //     } else {
-    //         if (handle_ack(&sock, buffer) < 0) {
-    //             printf("Failed to connect with server and mirror. Exiting...\n");
-    //             exit(0);
-    //         } else {
-    //             printf("Connected to ");
-    //         }
-
-    //     }
-    // }
-
-    
 
     while (1) {
         // scanf("%s", message);
         int is_valid;
         
             printf("Enter message to be sent to the server:\n");
-            //SEG FAULT :DISCUUS WITH
+            
             // fgets(buffer, sizeof(buffer),message);
             gets(message);
         // printf("Entered message is: %s", message);
         //process the message
-        is_valid = process_message(message);
-
+        struct result_process_message values = process_message(message);
+        is_valid = values.isvalidmsg;
+         
+    
         // strcat(message, "\n");
-
+        //printf("Entered message is after porcessing : %s", message);
         if (is_valid) {
             
             send(sock, message, strlen(message), 0);
@@ -485,7 +501,7 @@ int main() {
         // valread = read(sock, buffer, BUFFER_SIZE);
 
         // TODO: Send is_user_flag
-        get_message(sock, buffer);
+        get_message(sock, buffer,values.containsuFlag);
 
         // printf("Response from the server: %s\n", buffer);
         // close(sock); // Close connection to server
