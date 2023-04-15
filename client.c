@@ -1,6 +1,9 @@
 /*
-* Chaitanya and Neha Team
-* ASP Project 
+* Group 7 
+* 
+* ASP Project :COMP 8567 :Section 1
+* 110091353 : 	Chaitanya Jariwala
+* 110090513 :   Neha Anand
 */
 
 #include <stdio.h>
@@ -12,7 +15,6 @@
 #include <ctype.h>
 #include <stdbool.h>
 #include <libtar.h>
-#include <fcntl.h>
 
 
 #define SERVER_IP "127.0.0.1" // Change this to the IP address of your server
@@ -21,7 +23,6 @@
 #define MIRROR_PORT 8082     // Change this to the port number your server is listening on
 #define BUFFER_SIZE 16384 // size of the buffer to read from the socket
 #define MAX_WORDS_IN_COMMAND 8
-#define TAR_FILE_NAME temp.tar.gz
 
 struct result_process_message {
     int isvalidmsg ;
@@ -38,6 +39,8 @@ int is_numeric(const char *str) {
     return 1;
 }
 
+//when we have to send message which is a text and not a file
+//cases like when no file found or connection thing
 int receive_text(int sockfd, char *buffer) {
     memset(buffer, '\0', BUFFER_SIZE);
     int n = read(sockfd, buffer, BUFFER_SIZE);
@@ -57,7 +60,7 @@ int receive_text(int sockfd, char *buffer) {
 
     return 0;
 }
-
+//when files are found based on the command criteria by the user
 int receive_file(int sockfd, char* buffer, int is_user_flag) {
     // char buffer[BUFFER_SIZE];
     int n;
@@ -128,19 +131,23 @@ int receive_file(int sockfd, char* buffer, int is_user_flag) {
     }
 
      if (is_user_flag) {
-        printf("unzip \n");
+        if (is_user_flag) {
+       
         TAR *tar;
         int ret;
 
         ret =system("tar xf temp.tar.gz");
-        printf("unzip Successful!\n");
+       
          if (ret != 0 ) {
             //tar_strerror();
             fprintf(stderr, "Failed to open tar temp.tar.gz\n");
             return 1;
         }
-     }
+         printf("unzip Successful!\n");
+        }
+      }
     return 0;
+    
 }
 
 int get_message(int sockfd, char* buffer,int  is_user_flag) {
@@ -196,10 +203,12 @@ int incoming_msg_tokens(const char *str, char **tokens) {
     return token_count;
 }
 
+/** checks if the year netered is a leap year and it can have 29Feb as a valid date */
 bool isLeapYear(int year) {
     return ((year % 4 == 0 && year % 100 != 0) || year % 400 == 0);
 }
 
+/* checks for the valid date */
 bool isValidDate(int year, int month, int day) {
     if (year < 1 || month < 1 || month > 12 || day < 1 || day > 31) {
         return false;
@@ -232,7 +241,7 @@ bool isValidDateFormat(char *date) {
         }
     return 1;
 }
-
+/* checks for the valditiy of date syntax entred by the user and date1<=date2 */
 bool isdate1lessThanDate2(char *date1,char * date2) {
     int year1,year2,month1,month2,day1,day2;
     sscanf(date1, "%d-%d-%d", &year1, &month1, &day1);
@@ -262,6 +271,7 @@ bool isdate1lessThanDate2(char *date1,char * date2) {
     }
 }
 
+/* all the validations related to user input are performed here */
 struct result_process_message process_message (char* message) {
     struct result_process_message result;
     // return 1;
@@ -325,7 +335,7 @@ struct result_process_message process_message (char* message) {
                     // int size2 =atoi(tokens[2]);
                     if(!(size1>=0 && size2>=0 && (size1<=size2))) {
                         printf("[Correct Command Usage]  sgetfiles size1 size2 <-u>\n");
-                        printf("size1>0 size>0 and size1<=size2 ,current values are %d %d\n",size1,size2);
+                        printf("size1>=0 size>=0 and size1<=size2 ,current values are %ld %ld\n",size1,size2);
                         fflush(stdout);
                         returnval =0;
                     }
@@ -382,6 +392,7 @@ struct result_process_message process_message (char* message) {
                  }
         
      }
+     //incase user enters any other command or random messages except the 5 mentioned
      else {
         printf("Invalid Command Type !!! \n ");
         printf("Please choose one of the following commands \n");
@@ -402,7 +413,7 @@ struct result_process_message process_message (char* message) {
 }
 
 int handle_ack(int* sock, char* message) {
-    // printf("ack: %s\n", message);
+    //printf("ack: %s\n", message);
     if (strcmp(message,"Error: Server Full") == 0) {
         close(*sock);
         return -1;
@@ -435,9 +446,7 @@ int connect_socket (int* sock, char* ip_address, int port) {
         perror("Connection failed");
         close(*sock);
         return -1;
-        // reconnect = 1;
-        // sleep(1); // Wait for 1 second before attempting to reconnect
-        // continue; // Try to reconnect
+      
     }
 
     return 0;
@@ -450,13 +459,10 @@ int main() {
     int reconnect = 0;
     char* message=malloc(1024);
 
-    // if (connect_socket(&sock, SERVER_IP, SERVER_PORT) < 0) {
-    //     if (connect_socket(&sock, MIRROR_IP, MIRROR_PORT) < 0) {
-    //         printf("Failed to connect with server and mirror. Exiting...\n");
-    //         exit(0);
-    //     }
-    // }
+    //flag used for switching between client and server 
     int server_connected = 0;
+
+    //if connection successful then connect to server 
     if (connect_socket(&sock, SERVER_IP, SERVER_PORT) == 0) {
         read(sock, buffer, BUFFER_SIZE);
         if (handle_ack(&sock, buffer) == 0) {
@@ -469,6 +475,7 @@ int main() {
         printf("Server Down. Connecting to Mirror\n");
     }
 
+    //if connection successful then connect to mirror 
     if (!server_connected) {
         if (connect_socket(&sock, MIRROR_IP, MIRROR_PORT) < 0) {    
             printf("Mirror Down. Exiting...\n");
@@ -485,13 +492,11 @@ int main() {
             
             // fgets(buffer, sizeof(buffer),message);
             gets(message);
-        // printf("Entered message is: %s", message);
+        
         //process the message
         struct result_process_message values = process_message(message);
         is_valid = values.isvalidmsg;
-         
-    
-        // strcat(message, "\n");
+   
         //printf("Entered message is after porcessing : %s", message);
         if (is_valid) {
             
@@ -509,14 +514,10 @@ int main() {
 
         // printf("Message sent to server\n");
 
-        // Receive response from server
-        // valread = read(sock, buffer, BUFFER_SIZE);
-
-        // TODO: Send is_user_flag
+      
         get_message(sock, buffer,values.containsuFlag);
 
-        // printf("Response from the server: %s\n", buffer);
-        // close(sock); // Close connection to server
+       
     }
 
     return 0;
