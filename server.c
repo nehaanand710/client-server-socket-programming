@@ -350,7 +350,7 @@ void process_message (int new_socket, char* message) {
     else if (strncmp(message, "findfile", 8) == 0) {
 
         sprintf(cmd, "find ~ -name %s -printf \"%%f, size: %%s bytes, created on: %%t\n\" -quit", tokens[1]);
-        printf("cmd value: %s\n", cmd);
+        // printf("cmd value: %s\n", cmd);
         char* result = execute_command(cmd);
         if (strlen(result) == 0) {
             result = "File Not Found";
@@ -385,7 +385,7 @@ void process_message (int new_socket, char* message) {
         char* max_date = tokens[2];
       
         //create tar.gz file
-        sprintf(cmd, "find ~ -type f -newermt \"%s\" ! -newermt \"%s\" -print0 | tar -czvf %s --null -T - > /dev/null 2>&1", min_date, max_date, filename);
+        sprintf(cmd, "find ~ -type f -newermt \"%s 00:00:00\" ! -newermt \"%s 23:59:59\" -print0 | tar -czvf %s --null -T - > /dev/null 2>&1", min_date, max_date, filename);
         system(cmd);
         
         //send file
@@ -409,7 +409,7 @@ void process_message (int new_socket, char* message) {
 
         char* result = execute_command(cmd);
 
-        printf("result len: %ld", strlen(result));
+        // printf("result len: %ld", strlen(result));
 
         if (strlen(result) == 0) {
             send_text(new_socket, "No file found");
@@ -441,7 +441,7 @@ void process_message (int new_socket, char* message) {
 
         char* result = execute_command(cmd);
 
-        printf("result len: %ld", strlen(result));
+        // printf("result len: %ld", strlen(result));
 
         if (strlen(result) == 0) {
             send_text(new_socket, "No file found");

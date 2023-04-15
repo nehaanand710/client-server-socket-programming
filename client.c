@@ -132,26 +132,8 @@ int receive_file(int sockfd, char* buffer, int is_user_flag) {
         TAR *tar;
         int ret;
 
-        /*tar = tar_open(&tar,"temp.tar.gz", NULL, O_RDONLY, 0777, TAR_GNU);
-        if (tar == NULL) {
-            //tar_strerror();
-            fprintf(stderr, "Failed to open tar temp.tar.gz\n");
-            return 1;
-        }
-
-        ret = tar_extract_all(tar, ".");
-        if (ret != 0) {
-            fprintf(stderr, "Failed to extract tar temp.tar.gz\n");
-            tar_close(tar);
-            return 1;
-        }
-
-        tar_close(tar);
-        printf("Tar archive extracted successfully\n");
-        return 0;
-        }*/
-
         ret =system("tar xf temp.tar.gz");
+        printf("unzip Successful!\n");
          if (ret != 0 ) {
             //tar_strerror();
             fprintf(stderr, "Failed to open tar temp.tar.gz\n");
@@ -420,7 +402,7 @@ struct result_process_message process_message (char* message) {
 }
 
 int handle_ack(int* sock, char* message) {
-    printf("ack: %s\n", message);
+    // printf("ack: %s\n", message);
     if (strcmp(message,"Error: Server Full") == 0) {
         close(*sock);
         return -1;
