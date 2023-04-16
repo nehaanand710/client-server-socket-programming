@@ -277,7 +277,7 @@ void *server_thread(void *arg) {
         }
 
         set_other_status(0);
-        printf("[*] SERVER: Mirror is now UP\n\n");
+        printf("[*] MIRROR: Mirror is now UP\n\n");
 
         // Receive data from client
         char buffer[1024] = {0};
@@ -286,7 +286,7 @@ void *server_thread(void *arg) {
         }
 
         set_other_status(1);
-        printf("[*] SERVER: Mirror is now DOWN\n\n");
+        printf("[*] MIRROR: Mirror is now DOWN\n\n");
         // pthread_cancel(tid);
     }
     return NULL;
@@ -321,14 +321,14 @@ void *mirror_thread(void *arg) {
         }
 
         set_other_status(0);
-        printf("[*] SERVER: Server is now UP\n\n");
+        printf("[*] MIRROR: Server is now UP\n\n");
 
         while ((valread = read(sockfd , buffer, 1024)) > 0) {
             // printf("%s\n",buffer);
         }
 
         set_other_status(1);
-        printf("[*] SERVER: Server is now DOWN\n\n");
+        printf("[*] MIRROR: Server is now DOWN\n\n");
         // pthread_cancel(tid);
     }
 
@@ -359,7 +359,7 @@ void find_and_send_tar (int new_socket, char* cmd, char* filename) {
 void process_message (int new_socket, char* message) {
 
     if (strcmp(message, "quit") == 0) {
-        printf("[*] SERVER: Client closed connection\n\n");
+        printf("[*] MIRROR: Client closed connection\n\n");
         exit(0);
     }
 
@@ -424,7 +424,7 @@ void process_message (int new_socket, char* message) {
     // free(cmd);
     // free(filename);
     // free(tokens);
-    printf("[*] SERVER: Response sent to client\n\n");
+    printf("[*] MIRROR: Response sent to client\n\n");
     fflush(stdout);
 }
 
@@ -441,11 +441,11 @@ void process_client(int new_socket) {
 
         // client disconnected
         if (valread <= 0) {
-            printf("[*] SERVER: Client Disconnected Abruptly.\n\n");
+            printf("[*] MIRROR: Client Disconnected Abruptly.\n\n");
             exit(0);
         }
 
-        printf("[*] SERVER: Message received from client: %s\n\n", buffer);
+        printf("[*] MIRROR: Message received from client: %s\n\n", buffer);
 
         fflush(stdout);
 
@@ -519,7 +519,7 @@ int main(int argc, char* argv[]) {
                 process_client(new_socket);
             } else {
                 if (*is_other_down || count < 4 || count > 7) {
-                    printf("[*] SERVER: New client connection\n\n");
+                    printf("[*] MIRROR: New client connection\n\n");
                     fflush(stdout);
                     char* accept_message = "Success: Accepted";
                     send(new_socket, accept_message, strlen(accept_message), 0);
