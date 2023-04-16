@@ -413,7 +413,8 @@ struct result_process_message process_message (char* message) {
 }
 
 int handle_ack(int* sock, char* message) {
-    //printf("ack: %s\n", message);
+    // printf("ack: %s\n", message);
+    // fflush(stdout);
     if (strcmp(message,"Error: Server Full") == 0) {
         close(*sock);
         return -1;
@@ -462,6 +463,7 @@ int main() {
     //flag used for switching between client and server 
     int server_connected = 0;
 
+
     //if connection successful then connect to server 
     if (connect_socket(&sock, SERVER_IP, SERVER_PORT) == 0) {
         read(sock, buffer, BUFFER_SIZE);
@@ -469,19 +471,28 @@ int main() {
             printf("Connected to server at %s:%d\n", SERVER_IP, SERVER_PORT);
             server_connected = 1;
         } else {
+            close(sock);
             printf("Server redirected to mirror. Connecting to mirror...\n");
         }
     } else {
         printf("Server Down. Connecting to Mirror\n");
     }
+ 
+    memset(buffer, '\0', BUFFER_SIZE);
 
     //if connection successful then connect to mirror 
     if (!server_connected) {
-        if (connect_socket(&sock, MIRROR_IP, MIRROR_PORT) < 0) {    
+        if (connect_socket(&sock, MIRROR_IP, MIRROR_PORT) < 0) {   
             printf("Mirror Down. Exiting...\n");
             exit(1);
         }
-        printf("Connected to mirror at %s:%d \n", MIRROR_IP, MIRROR_PORT);
+        else {
+            read(sock, buffer, BUFFER_SIZE);
+            if (handle_ack(&sock, buffer) == 0) {
+                printf("Connected to mirror at %s:%d \n", MIRROR_IP, MIRROR_PORT);
+            }
+            // printf("Server Down. Connecting to Mirror\n");
+        }
     }
 
     while (1) {
