@@ -26,7 +26,7 @@
 #define HEARTBEAT_INTERVAL_SECONDS 10
 #define IP "127.0.0.1"
 
-int is_mirror = 0;
+int is_mirror = 1;
 int* is_other_down;
 
 /* Generates a timestamp which is used to have different temprorary name for the tar file*/
@@ -57,7 +57,7 @@ int tokenize_string(const char *str, char **tokens) {
     }
 
     // Free the temporary string copy.
-    free(str_copy);
+    // free(str_copy);
 
     // Return the number of tokens found.
     return token_count;
@@ -353,7 +353,7 @@ void find_and_send_tar (int new_socket, char* cmd, char* filename) {
         sprintf(cmd, "rm -f %s", filename);
         system(cmd);
     }
-    free(result);
+    // free(result);
 }
 
 void process_message (int new_socket, char* message) {
@@ -421,9 +421,9 @@ void process_message (int new_socket, char* message) {
         find_and_send_tar(new_socket, cmd, filename);
     }
 
-    free(cmd);
-    free(filename);
-    free(tokens);
+    // free(cmd);
+    // free(filename);
+    // free(tokens);
     printf("[*] SERVER: Response sent to client\n\n");
     fflush(stdout);
 }
@@ -459,14 +459,8 @@ int main(int argc, char* argv[]) {
     int addrlen = sizeof(address);
     char buffer[BUFFER_SIZE] = {0};
     int opt = 1;
-    //switching between mirror and server using flag
-    if (argc > 1) {
-        is_mirror = 1;
-    } else {
-        is_mirror = 0;
-    }
     
-    int port = is_mirror ? MIRROR_PORT : SERVER_PORT;
+    int port = MIRROR_PORT;
 
     //shared variable being used to switch between server and mirror
     is_other_down = (int*) create_shared_memory(sizeof(int));
